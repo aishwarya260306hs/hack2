@@ -1,47 +1,141 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Problem Categorizer</title>
+    <title>AI Problem Categorizer Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <div class="container">
-        <h2>AI Problem Categorizer</h2>
-        
-        <form id="problemForm">
-            <div class="form-group">
-                <label for="streamSelect">Select Stream</label>
-                <select id="streamSelect" required onchange="updateOrganizations()">
-                    <option value="" disabled selected>-- Choose a Stream --</option>
-                    <option value="education">Education (Colleges/Universities in Bangalore)</option>
-                    <option value="tech">Tech Companies</option>
-                    <option value="government">Government Offices</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="orgSelect">Select Organization / Institution</label>
-                <select id="orgSelect" required>
-                    <option value="" disabled selected>-- First select a stream --</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="problemInput">Describe Your Problem</label>
-                <textarea id="problemInput" placeholder="Type your issue here..." required></textarea>
-            </div>
-
-            <button type="submit">Submit & Categorize with AI</button>
-        </form>
-
-        <div class="results-section" id="resultsSection" style="display: none;">
-            <h3>Live AI Problem Clusters</h3>
-            <div id="clustersContainer"></div>
+    <header class="topbar">
+        <div>
+            <h2>ResolveAI</h2>
+            <p>Smart Complaint Management</p>
         </div>
-    </div>
+        <div class="profile">
+            <div class="avatar">U</div>
+            <span>My Dashboard</span>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="welcome">
+            <div>
+                <p class="eyebrow">DASHBOARD OVERVIEW</p>
+                <h1>Track problems. Find patterns. Get solutions.</h1>
+                <p>Submit an issue, discover similar complaints, and track progress.</p>
+            </div>
+        </section>
+
+        <section class="stats-grid">
+            <article class="stat-card">
+                <span>Total Problems</span>
+                <h2 id="totalProblems">0</h2>
+                <p>All submitted complaints</p>
+            </article>
+            <article class="stat-card">
+                <span>Similar Problems</span>
+                <h2 id="similarProblems">0</h2>
+                <p>Matching complaints found</p>
+            </article>
+            <article class="stat-card">
+                <span>My Problems</span>
+                <h2 id="myProblems">0</h2>
+                <p>Submitted by you</p>
+            </article>
+            <article class="stat-card">
+                <span>Responses Received</span>
+                <h2 id="responsesReceived">0</h2>
+                <p>Complaints with a response</p>
+            </article>
+            <article class="stat-card">
+                <span>In Progress</span>
+                <h2 id="inProgress">0</h2>
+                <p>Awaiting resolution</p>
+            </article>
+            <article class="stat-card">
+                <span>Resolved</span>
+                <h2 id="resolved">0</h2>
+                <p>Successfully completed</p>
+            </article>
+        </section>
+
+        <div class="dashboard-grid">
+            <section class="panel">
+                <h2>Submit a Problem</h2>
+                <p class="muted">Your complaint will be checked against existing reports.</p>
+
+                <form id="problemForm">
+                    <div class="form-group">
+                        <label for="streamSelect">Select Stream</label>
+                        <select id="streamSelect" required>
+                            <option value="">Choose a stream</option>
+                            <option value="education">Education</option>
+                            <option value="tech">Tech Companies</option>
+                            <option value="government">Government Offices</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="orgSelect">Organization / Institution</label>
+                        <select id="orgSelect" required>
+                            <option value="">First select a stream</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="problemInput">Describe Your Problem</label>
+                        <textarea id="problemInput" rows="5"
+                            placeholder="Describe your issue clearly..."
+                            required></textarea>
+                    </div>
+
+                    <button type="submit">Submit & Check Similar Problems</button>
+                    <p id="formMessage" role="status"></p>
+                </form>
+            </section>
+
+            <section class="panel">
+                <h2>Similar Problem Clusters</h2>
+                <p class="muted">Related complaints grouped by organization.</p>
+                <div id="clustersContainer">
+                    <p class="empty-state">No problems submitted yet.</p>
+                </div>
+            </section>
+        </div>
+
+        <section class="panel my-complaints">
+            <div class="section-heading">
+                <div>
+                    <h2>My Complaints</h2>
+                    <p class="muted">Track the status of your submissions.</p>
+                </div>
+                <span class="tag">Personal activity</span>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Problem</th>
+                            <th>Organization</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Response</th>
+                        </tr>
+                    </thead>
+                    <tbody id="myProblemsTable">
+                        <tr>
+                            <td colspan="5" class="empty-state">
+                                You haven't submitted any problems yet.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
 
     <script src="script.js"></script>
 </body>

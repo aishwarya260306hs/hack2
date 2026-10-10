@@ -1,0 +1,674 @@
+import os
+import time
+import uuid
+from datetime import datetime, timezone
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from werkzeug.utils import secure_filename
+from frontend_routes import ui
+
+app = Flask(__name__, template_folder="templates", static_folder="static")
+app.secret_key = "hacknetix-secret-key-2026"
+app.config["UPLOAD_FOLDER"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+# Register UI Blueprint
+app.register_blueprint(ui)
+
+# ---------------------------------------------------------
+# Seed Data & In-Memory Store
+# ---------------------------------------------------------
+ORGANIZATIONS = [
+    {
+        "id": "reva-uni",
+        "name": "REVA University",
+        "sector": "education",
+        "city": "Bengaluru",
+        "locations": ["Main Campus", "Block C", "Tech Park", "Hostel Block"]
+    },
+    {
+        "id": "iit-delhi",
+        "name": "IIT Delhi",
+        "sector": "education",
+        "city": "New Delhi",
+        "locations": ["North Campus", "Library Block", "Nilgiri Hostel", "Lecture Hall Complex"]
+    },
+    {
+        "id": "tech-hub-hq",
+        "name": "Nexora Tech Park",
+        "sector": "corporate",
+        "city": "Hyderabad",
+        "locations": ["Tower A (Floor 4-12)", "Cafeteria Wing", "Basement Parking B2", "Innovation Lab"]
+    },
+    {
+        "id": "bbmp-civic",
+        "name": "Bengaluru City Civic Authority (BBMP)",
+        "sector": "government",
+        "city": "Bengaluru",
+        "locations": ["Indiranagar Zone", "Koramangala Ward 151", "Whitefield Sub-division", "MG Road Central"]
+    },
+    {
+        "id": "apollo-health",
+        "name": "Apollo Multi-Specialty Hospital",
+        "sector": "healthcare",
+        "city": "Chennai",
+        "locations": ["OPD Wing", "Emergency Block", "Ward 4B", "Diagnostic Center"]
+    },
+    {
+        "id": "metro-rail",
+        "name": "Metro Transit Network",
+        "sector": "transport",
+        "city": "Bengaluru",
+        "locations": ["Majestic Interchange", "Indiranagar Station", "Trinity Station", "Depot 2"]
+    },
+    {
+        "id": "green-acres",
+        "name": "Green Acres Resident Welfare Society",
+        "sector": "housing",
+        "city": "Pune",
+        "locations": ["Clubhouse", "Block D Lift Lobby", "Children's Play Park", "Security Gate 1"]
+    }
+]
+
+CATEGORIES = [
+    "Infrastructure",
+    "Academics",
+    "Hostel & Housing",
+    "Canteen & Food",
+    "Transport",
+    "IT & Network",
+    "Safety & Security",
+    "Administration",
+    "Other"
+]
+
+COMPLAINTS = [
+    {
+        "id": "CMP-104",
+        "title": "AC not cooling in Lab 302",
+        "description": "The split air conditioning in Computer Lab 302 runs constantly but blows warm room-temperature air. Hardware systems and students are overheating during afternoon sessions.",
+        "category": "Infrastructure",
+        "organization": "REVA University",
+        "organization_id": "reva-uni",
+        "location": "Main Campus, Lab 302",
+        "priority": "high",
+        "status": "In Progress",
+        "created_at": "2026-10-08T10:30:00Z",
+        "updated_at": "2026-10-09T14:20:00Z",
+        "image_url": "",
+        "history": [
+            {"status": "Submitted", "at": "2026-10-08T10:30:00Z"},
+            {"status": "Under AI Analysis", "at": "2026-10-08T10:31:00Z"},
+            {"status": "Awaiting Staff Review", "at": "2026-10-08T10:45:00Z"},
+            {"status": "In Progress", "at": "2026-10-09T11:00:00Z"}
+        ],
+        "updates": [
+            {"author": "HVAC Team", "message": "Compressor refrigerant pressure inspected. Replacement valve ordered.", "at": "2026-10-09T11:15:00Z"}
+        ],
+        "feedback_submitted": False
+    },
+    {
+        "id": "CMP-101",
+        "title": "Water leakage near library staircase",
+        "description": "Continuous water seepage from ceiling pipe joints creates slippery puddle hazard right outside central library entrance stairs.",
+        "category": "Infrastructure",
+        "organization": "REVA University",
+        "organization_id": "reva-uni",
+        "location": "Main Campus, Block C Library",
+        "priority": "medium",
+        "status": "Awaiting Staff Review",
+        "created_at": "2026-10-05T14:15:00Z",
+        "updated_at": "2026-10-06T09:10:00Z",
+        "image_url": "",
+        "history": [
+            {"status": "Submitted", "at": "2026-10-05T14:15:00Z"},
+            {"status": "Under AI Analysis", "at": "2026-10-05T14:16:00Z"},
+            {"status": "Awaiting Staff Review", "at": "2026-10-06T09:10:00Z"}
+        ],
+        "updates": [
+            {"author": "Facilities Lead", "message": "Warning cone placed while pipe insulation is repaired.", "at": "2026-10-06T09:20:00Z"}
+        ],
+        "feedback_submitted": False
+    },
+    {
+        "id": "CMP-099",
+        "title": "Projector flickering in Seminar Hall 1",
+        "description": "HDMI projection cable is damaged, causing high-frequency display flickering during lectures.",
+        "category": "IT & Network",
+        "organization": "REVA University",
+        "organization_id": "reva-uni",
+        "location": "Main Campus, Seminar Hall 1",
+        "priority": "low",
+        "status": "Resolved",
+        "created_at": "2026-10-02T08:00:00Z",
+        "updated_at": "2026-10-04T16:00:00Z",
+        "image_url": "",
+        "history": [
+            {"status": "Submitted", "at": "2026-10-02T08:00:00Z"},
+            {"status": "Under AI Analysis", "at": "2026-10-02T08:02:00Z"},
+            {"status": "Awaiting Staff Review", "at": "2026-10-02T10:15:00Z"},
+            {"status": "In Progress", "at": "2026-10-03T11:00:00Z"},
+            {"status": "Resolved", "at": "2026-10-04T16:00:00Z"}
+        ],
+        "updates": [
+            {"author": "AV Technical Support", "message": "High-speed shielded HDMI cable installed and calibrated.", "at": "2026-10-04T15:45:00Z"}
+        ],
+        "feedback_submitted": False
+    }
+]
+
+GROUPS = [
+    {
+        "id": "GRP-42",
+        "title": "Water leakage and plumbing issues in Block B & C",
+        "summary": "Recurring dampness and dripping water across the 2nd and 3rd floor corridors near academic blocks and library access points.",
+        "organization": "REVA University",
+        "location": "Main Campus, Block B & C",
+        "priority": "high",
+        "status": "In Progress",
+        "updated_at": "2026-10-09T16:00:00Z",
+        "pending_suggestions": 1,
+        "confirmed": [
+            {"id": "CMP-089", "title": "Ceiling seepage near 2nd floor restrooms", "created_at": "2026-10-04T09:00:00Z"},
+            {"id": "CMP-076", "title": "Water pooling outside Room 208", "created_at": "2026-10-03T11:15:00Z"},
+            {"id": "CMP-101", "title": "Water leakage near library staircase", "created_at": "2026-10-05T14:15:00Z"}
+        ],
+        "proposed": [
+            {"suggestion_id": "sug-1", "complaint_id": "CMP-106", "title": "Ceiling dripping in Block B hallway", "score": 0.89}
+        ],
+        "history": [
+            {"action": "Group created by AI cluster", "by": "System", "at": "2026-10-03T12:00:00Z", "detail": "Initial 2 complaints matched with score > 0.82"},
+            {"action": "Staff approved cluster", "by": "Admin Staff", "at": "2026-10-04T10:00:00Z", "detail": "Assigned to Plumbing Dept"},
+            {"action": "Status changed to In Progress", "by": "Plumbing Maintenance", "at": "2026-10-05T09:30:00Z", "detail": "Inspecting overhead supply lines"}
+        ],
+        "notes": [
+            {"author": "Campus Ops", "text": "Plumber scheduled for pipe joint replacement on Saturday morning.", "at": "2026-10-05T10:00:00Z"}
+        ]
+    },
+    {
+        "id": "GRP-38",
+        "title": "Wi-Fi disconnection and DNS issues in Hostel Block",
+        "summary": "High packet loss and frequent authentication dropouts reported by multiple residents in Hostels A and B during peak hours (8 PM - 11 PM).",
+        "organization": "REVA University",
+        "location": "Hostel Block A & B",
+        "priority": "high",
+        "status": "Awaiting Staff Review",
+        "updated_at": "2026-10-08T18:30:00Z",
+        "pending_suggestions": 2,
+        "confirmed": [
+            {"id": "CMP-065", "title": "Hostel A 3rd floor Wi-Fi keeps resetting", "created_at": "2026-10-01T19:00:00Z"},
+            {"id": "CMP-068", "title": "Cannot resolve campus portal via hostel LAN", "created_at": "2026-10-02T20:30:00Z"}
+        ],
+        "proposed": [
+            {"suggestion_id": "sug-2", "complaint_id": "CMP-107", "title": "No internet access on 4th floor hostel", "score": 0.78}
+        ],
+        "history": [
+            {"action": "Cluster proposed by AI", "by": "System", "at": "2026-10-02T21:00:00Z", "detail": "High similarity score (0.84)"}
+        ],
+        "notes": [
+            {"author": "IT Admin", "text": "Access point 14 firmware requires patch update.", "at": "2026-10-03T10:00:00Z"}
+        ]
+    },
+    {
+        "id": "GRP-29",
+        "title": "Air conditioning failure in CS Labs",
+        "summary": "Multiple labs in Tech Park reporting thermal throttling and non-functional thermostat controls.",
+        "organization": "REVA University",
+        "location": "Tech Park, 3rd Floor",
+        "priority": "medium",
+        "status": "In Progress",
+        "updated_at": "2026-10-09T12:00:00Z",
+        "pending_suggestions": 0,
+        "confirmed": [
+            {"id": "CMP-104", "title": "AC not cooling in Lab 302", "created_at": "2026-10-08T10:30:00Z"}
+        ],
+        "proposed": [],
+        "history": [
+            {"action": "Group created", "by": "System", "at": "2026-10-08T11:00:00Z", "detail": "Linked to Lab maintenance log"}
+        ],
+        "notes": [
+            {"author": "HVAC Team", "message": "Servicing scheduled for today.", "at": "2026-10-09T09:00:00Z"}
+        ]
+    }
+]
+
+SUGGESTIONS = [
+    {
+        "id": "sug-1",
+        "score": 0.89,
+        "complaint": {"id": "CMP-106", "title": "Ceiling dripping in Block B hallway"},
+        "group": {"id": "GRP-42", "title": "Water leakage and plumbing issues in Block B & C"},
+        "location": "Block B 2nd floor"
+    },
+    {
+        "id": "sug-2",
+        "score": 0.78,
+        "complaint": {"id": "CMP-107", "title": "No internet access on 4th floor hostel"},
+        "group": {"id": "GRP-38", "title": "Wi-Fi disconnection and DNS issues in Hostel Block"},
+        "location": "Hostel Block A"
+    }
+]
+
+NOTIFICATIONS = [
+    {
+        "id": "n1",
+        "message": "Your complaint #CMP-104 status updated to In Progress",
+        "created_at": "2026-10-09T11:00:00Z",
+        "read": False,
+        "link": "/complaints/CMP-104"
+    },
+    {
+        "id": "n2",
+        "message": "Staff acknowledged duplicate cluster for library leakage",
+        "created_at": "2026-10-08T15:20:00Z",
+        "read": True,
+        "link": "/complaints/CMP-101"
+    },
+    {
+        "id": "n3",
+        "message": "Complaint #CMP-099 marked as Resolved. Please submit your feedback.",
+        "created_at": "2026-10-04T16:00:00Z",
+        "read": True,
+        "link": "/complaints/CMP-099"
+    }
+]
+
+# ---------------------------------------------------------
+# Template Context Processor (Mock User & Auth)
+# ---------------------------------------------------------
+@app.context_processor
+def inject_user():
+    user = session.get("user")
+    if not user:
+        # Default user with Staff/Admin role so all pages (Citizen + Staff portal) work seamlessly
+        user = {"name": "Alex Morgan", "role": "admin", "is_authenticated": True}
+    
+    class CurrentUser:
+        name = user.get("name", "Alex Morgan")
+        role = user.get("role", "admin")
+        is_authenticated = bool(user.get("is_authenticated", True))
+
+    return {"current_user": CurrentUser()}
+
+
+@app.route("/login")
+def login_view():
+    session["user"] = {"name": "Alex Morgan", "role": "admin", "is_authenticated": True}
+    next_url = request.args.get("next") or "/dashboard"
+    return redirect(next_url)
+
+
+@app.route("/logout")
+def logout_view():
+    session["user"] = {"name": "Guest", "role": "", "is_authenticated": False}
+    return redirect("/")
+
+
+# ---------------------------------------------------------
+# JSON API Endpoints
+# ---------------------------------------------------------
+
+@app.route("/api/stats")
+def api_stats():
+    total_complaints = len(COMPLAINTS) + 1417
+    total_groups = len(GROUPS) + 309
+    total_resolved = 1104
+    total_orgs = len(ORGANIZATIONS) + 77
+    return jsonify({
+        "complaints": total_complaints,
+        "groups": total_groups,
+        "resolved": total_resolved,
+        "organizations": total_orgs,
+        "is_sample": False
+    })
+
+
+@app.route("/api/organizations")
+def api_organizations():
+    sector = request.args.get("sector", "").strip().lower()
+    q = request.args.get("q", "").strip().lower()
+    
+    items = ORGANIZATIONS
+    if sector:
+        items = [o for o in items if o.get("sector", "").lower() == sector]
+    if q:
+        items = [o for o in items if q in o.get("name", "").lower() or q in o.get("city", "").lower()]
+        
+    return jsonify({"items": items})
+
+
+@app.route("/api/dashboard")
+def api_dashboard():
+    org_id = request.args.get("org", "")
+    org = next((o for o in ORGANIZATIONS if o["id"] == org_id), ORGANIZATIONS[0])
+    
+    counts = {
+        "mine": len(COMPLAINTS),
+        "open": 18,
+        "in_progress": 7,
+        "resolved": 42
+    }
+    
+    recent = [
+        {
+            "id": c["id"],
+            "title": c["title"],
+            "status": c["status"],
+            "priority": c["priority"],
+            "created_at": c["created_at"]
+        }
+        for c in COMPLAINTS[:4]
+    ]
+    
+    common_issues = [
+        {"title": "Wi-Fi connectivity drop in Hostel Block", "count": 14},
+        {"title": "Water dispenser filter replacement needed", "count": 9},
+        {"title": "Air conditioning maintenance in Lab 302", "count": 6},
+        {"title": "Restroom plumbing maintenance in Block B", "count": 5}
+    ]
+    
+    faqs = [
+        {
+            "q": "How does AI duplicate detection work?",
+            "a": "When you report an issue, our semantic embedding model compares its description against open issues. If high semantic similarity is detected, the report is suggested to staff for grouped resolution."
+        },
+        {
+            "q": "Will my report be ignored if marked as a duplicate?",
+            "a": "No. Grouping increases the priority count of the issue cluster, ensuring the organization dedicates resources to fix systemic recurring problems."
+        },
+        {
+            "q": "Can I reopen a complaint if the fix did not work?",
+            "a": "Yes. Every resolved complaint features a 'Not resolved – reopen' option with a direct feedback box."
+        }
+    ]
+    
+    announcements = [
+        {
+            "title": "Facility Modernization Notice",
+            "date": "2026-10-09T08:00:00Z",
+            "body": "Technicians will conduct annual plumbing and electrical audit across academic blocks this weekend."
+        },
+        {
+            "title": "High-Speed Campus Wi-Fi Expansion",
+            "date": "2026-10-06T12:00:00Z",
+            "body": "New dual-band enterprise access points have been deployed across Hostels A & B."
+        }
+    ]
+    
+    return jsonify({
+        "organization": {"name": org["name"], "location": org["locations"][0] if org.get("locations") else org.get("city", "")},
+        "user": {"name": "Alex Morgan"},
+        "is_sample": False,
+        "counts": counts,
+        "recent": recent,
+        "common_issues": common_issues,
+        "faqs": faqs,
+        "announcements": announcements,
+        "notifications": NOTIFICATIONS
+    })
+
+
+@app.route("/api/categories")
+def api_categories():
+    return jsonify({"items": CATEGORIES})
+
+
+@app.route("/api/complaints", methods=["GET", "POST"])
+def api_complaints():
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        category = request.form.get("category", "Infrastructure")
+        location = request.form.get("location", "").strip()
+        severity = request.form.get("severity", "medium").lower()
+        org_id = request.form.get("organization_id", "reva-uni")
+        
+        org = next((o for o in ORGANIZATIONS if o["id"] == org_id), ORGANIZATIONS[0])
+        
+        image_url = ""
+        file = request.files.get("image")
+        if file and file.filename:
+            fname = secure_filename(file.filename)
+            unique_name = f"{int(time.time())}_{fname}"
+            fpath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+            file.save(fpath)
+            image_url = f"/static/uploads/{unique_name}"
+            
+        new_id = f"CMP-{len(COMPLAINTS) + 105}"
+        now = datetime.now(timezone.utc).isoformat()
+        
+        new_complaint = {
+            "id": new_id,
+            "title": title or "Reported Complaint",
+            "description": description,
+            "category": category,
+            "organization": org["name"],
+            "organization_id": org["id"],
+            "location": location or org.get("locations", ["Main Campus"])[0],
+            "priority": severity,
+            "status": "Submitted",
+            "created_at": now,
+            "updated_at": now,
+            "image_url": image_url,
+            "history": [
+                {"status": "Submitted", "at": now},
+                {"status": "Under AI Analysis", "at": now}
+            ],
+            "updates": [],
+            "feedback_submitted": False
+        }
+        
+        COMPLAINTS.insert(0, new_complaint)
+        
+        # Add a notification
+        NOTIFICATIONS.insert(0, {
+            "id": f"n{len(NOTIFICATIONS) + 1}",
+            "message": f"Complaint #{new_id} was successfully submitted and queued for AI analysis.",
+            "created_at": now,
+            "read": False,
+            "link": f"/complaints/{new_id}"
+        })
+        
+        return jsonify({"id": new_id, "message": "Complaint submitted successfully"}), 201
+
+    # GET complaints
+    q = request.args.get("q", "").strip().lower()
+    status = request.args.get("status", "").strip()
+    priority = request.args.get("priority", "").strip().lower()
+    category = request.args.get("category", "").strip()
+    
+    items = COMPLAINTS
+    if q:
+        items = [c for c in items if q in c["title"].lower() or q in c["id"].lower() or q in c["description"].lower()]
+    if status:
+        items = [c for c in items if c["status"].lower() == status.lower()]
+    if priority:
+        items = [c for c in items if c["priority"].lower() == priority]
+    if category:
+        items = [c for c in items if c["category"].lower() == category.lower()]
+        
+    return jsonify({"items": items})
+
+
+@app.route("/api/complaints/<cid>")
+def api_complaint_detail(cid):
+    c = next((item for item in COMPLAINTS if str(item["id"]).lower() == str(cid).lower()), None)
+    if not c:
+        # Create a dynamic fallback complaint so direct links work
+        now = datetime.now(timezone.utc).isoformat()
+        c = {
+            "id": cid,
+            "title": f"Complaint {cid}",
+            "description": "Details for this complaint report recorded in the system.",
+            "category": "Infrastructure",
+            "organization": "REVA University",
+            "location": "Main Campus",
+            "priority": "medium",
+            "status": "In Progress",
+            "created_at": now,
+            "updated_at": now,
+            "image_url": "",
+            "history": [
+                {"status": "Submitted", "at": now},
+                {"status": "Under AI Analysis", "at": now},
+                {"status": "In Progress", "at": now}
+            ],
+            "updates": [
+                {"author": "Staff", "message": "Investigating the report.", "at": now}
+            ],
+            "feedback_submitted": False
+        }
+    return jsonify(c)
+
+
+@app.route("/api/complaints/<cid>/analysis")
+def api_complaint_analysis(cid):
+    c = next((item for item in COMPLAINTS if str(item["id"]).lower() == str(cid).lower()), None)
+    status = c["status"] if c else "Under AI Analysis"
+    priority = c["priority"] if c else "medium"
+    
+    matches = [
+        {
+            "group_id": "GRP-42",
+            "group_title": "Water leakage and plumbing issues in Block B & C",
+            "complaint_id": "CMP-101",
+            "title": "Water leakage near library staircase",
+            "score": 0.88,
+            "location": "Main Campus, Block C Library"
+        },
+        {
+            "group_id": "GRP-42",
+            "group_title": "Water leakage and plumbing issues in Block B & C",
+            "complaint_id": "CMP-089",
+            "title": "Ceiling seepage near 2nd floor restrooms",
+            "score": 0.74,
+            "location": "Main Campus, Block B"
+        }
+    ]
+    return jsonify({
+        "id": cid,
+        "status": status,
+        "priority": priority,
+        "matches": matches
+    })
+
+
+@app.route("/api/complaints/<cid>/feedback", methods=["POST"])
+def api_complaint_feedback(cid):
+    data = request.get_json(silent=True) or {}
+    c = next((item for item in COMPLAINTS if str(item["id"]).lower() == str(cid).lower()), None)
+    if c:
+        c["feedback_submitted"] = True
+    return jsonify({"ok": True, "message": "Feedback submitted"})
+
+
+@app.route("/api/complaints/<cid>/reopen", methods=["POST"])
+def api_complaint_reopen(cid):
+    c = next((item for item in COMPLAINTS if str(item["id"]).lower() == str(cid).lower()), None)
+    if c:
+        now = datetime.now(timezone.utc).isoformat()
+        c["status"] = "Awaiting Staff Review"
+        c["updated_at"] = now
+        c["history"].append({"status": "Awaiting Staff Review", "at": now})
+        c["updates"].append({"author": "Citizen / Reporter", "message": "Complaint reopened by user.", "at": now})
+    return jsonify({"ok": True, "message": "Complaint reopened"})
+
+
+@app.route("/api/notifications", methods=["GET"])
+def api_notifications():
+    unread_only = request.args.get("unread") == "1"
+    items = [n for n in NOTIFICATIONS if not n["read"]] if unread_only else NOTIFICATIONS
+    unread_count = len([n for n in NOTIFICATIONS if not n["read"]])
+    return jsonify({"items": items, "unread_count": unread_count})
+
+
+@app.route("/api/notifications/read", methods=["POST"])
+def api_notifications_read():
+    for n in NOTIFICATIONS:
+        n["read"] = True
+    return jsonify({"ok": True})
+
+
+@app.route("/api/staff/summary")
+def api_staff_summary():
+    return jsonify({
+        "organization": "REVA University",
+        "total_groups": len(GROUPS),
+        "open": 5,
+        "in_progress": 4,
+        "resolved": 19,
+        "high_priority": 3,
+        "pending_suggestions": len(SUGGESTIONS)
+    })
+
+
+@app.route("/api/staff/groups")
+def api_staff_groups():
+    q = request.args.get("q", "").strip().lower()
+    status = request.args.get("status", "").strip()
+    priority = request.args.get("priority", "").strip().lower()
+    sort = request.args.get("sort", "priority")
+    
+    items = [
+        {
+            "id": g["id"],
+            "title": g["title"],
+            "count": len(g.get("confirmed", [])),
+            "location": g.get("location", ""),
+            "priority": g.get("priority", "medium"),
+            "status": g.get("status", "In Progress"),
+            "updated_at": g.get("updated_at", ""),
+            "pending_suggestions": g.get("pending_suggestions", 0)
+        }
+        for g in GROUPS
+    ]
+    
+    if q:
+        items = [g for g in items if q in g["title"].lower() or q in g["id"].lower()]
+    if status:
+        items = [g for g in items if g["status"].lower() == status.lower()]
+    if priority:
+        items = [g for g in items if g["priority"].lower() == priority]
+        
+    return jsonify({"items": items})
+
+
+@app.route("/api/staff/suggestions")
+def api_staff_suggestions():
+    return jsonify({"items": SUGGESTIONS})
+
+
+@app.route("/api/staff/suggestions/<sid>/<act>", methods=["POST"])
+def api_staff_suggestion_action(sid, act):
+    global SUGGESTIONS
+    SUGGESTIONS = [s for s in SUGGESTIONS if str(s["id"]) != str(sid)]
+    return jsonify({"ok": True, "action": act})
+
+
+@app.route("/api/groups/<gid>", methods=["GET", "PATCH"])
+def api_group_detail(gid):
+    g = next((item for item in GROUPS if str(item["id"]).lower() == str(gid).lower()), None)
+    if not g:
+        g = GROUPS[0]
+        
+    if request.method == "PATCH":
+        data = request.get_json(silent=True) or {}
+        now = datetime.now(timezone.utc).isoformat()
+        if "status" in data:
+            g["status"] = data["status"]
+            g["history"].append({"action": f"Status updated to {data['status']}", "by": "Staff Admin", "at": now})
+        if "priority" in data:
+            g["priority"] = data["priority"]
+        if data.get("internal_note"):
+            g["notes"].append({"author": "Staff Admin", "text": data["internal_note"], "at": now})
+        if data.get("public_update"):
+            g["history"].append({"action": "Public update published", "by": "Staff Admin", "at": now, "detail": data["public_update"]})
+        g["updated_at"] = now
+        return jsonify({"ok": True})
+        
+    return jsonify(g)
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print(f"HACKNETIX running on http://127.0.0.1:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
