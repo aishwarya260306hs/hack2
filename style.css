@@ -12,13 +12,44 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     margin: 0;
-    padding: 20px;
+    padding: 0;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
     min-height: 100vh;
 }
 
+/* Navbar Header */
+.navbar {
+    width: 100%;
+    background-color: var(--card-bg);
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    box-sizing: border-box;
+}
+
+.brand-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: 0.5px;
+}
+
+.account-icon {
+    font-size: 1.8rem;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.account-icon:hover {
+    color: var(--primary);
+}
+
+/* Main Container */
 .container {
     width: 100%;
     max-width: 700px;
@@ -26,6 +57,9 @@ body {
     padding: 30px;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    margin-top: 40px;
+    margin-bottom: 40px;
+    box-sizing: border-box;
 }
 
 h2 {
@@ -82,6 +116,7 @@ button:hover {
     background-color: var(--primary-hover);
 }
 
+/* Results Section */
 .results-section {
     margin-top: 30px;
     border-top: 2px solid #e2e8f0;
@@ -99,12 +134,79 @@ button:hover {
 .cluster-title {
     font-weight: bold;
     color: #334155;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    font-size: 1.05rem;
 }
 
 .problem-item {
     font-size: 0.9rem;
     color: #64748b;
     margin-left: 15px;
+    margin-bottom: 4px;
     list-style-type: disc;
+}
+
+/* Dashboard Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 450px;
+    position: relative;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.close-btn:hover {
+    color: var(--text-color);
+}
+
+.stats-grid {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    gap: 10px;
+}
+
+.stat-card {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    flex: 1;
+}
+
+.stat-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #64748b;
 }
